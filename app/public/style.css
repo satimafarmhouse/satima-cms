@@ -447,3 +447,16 @@ body.navigation-drawer-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
  #workspace>aside#workspace-sidebar,#workspace>main,#workspace .nav,#workspace .workspace-header{transition:none!important}
 }
+
+/* Installed-app launch splash (see pwa.js): about 3 s on launch from the home-screen icon only. */
+.app-splash{display:none}
+html.splash-on body{overflow:hidden}
+html.splash-on .app-splash{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;transition:opacity .35s ease}
+.app-splash img{width:min(44vw,180px);height:auto}
+.app-splash-name{margin:20px 0 4px;font-family:Georgia,serif;font-size:1.65rem;color:#234B3E}
+.app-splash-tag{margin:0;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:#718078}
+.app-splash-bar{position:relative;width:120px;height:3px;margin-top:30px;border-radius:3px;background:#E4E8E1;overflow:hidden}
+.app-splash-bar::after{content:"";position:absolute;inset:0;background:#234B3E;transform-origin:left;transform:scaleX(0);animation:splash-fill var(--splash-ms,3000ms) linear forwards}
+html.splash-on .app-splash.app-splash-leaving{opacity:0}
+@keyframes splash-fill{to{transform:scaleX(1)}}
+@media(prefers-reduced-motion:reduce){.app-splash-bar::after{animation:none;transform:scaleX(1)}}
