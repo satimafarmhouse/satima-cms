@@ -24,14 +24,14 @@ The backup directory and key path are listed in the Mac's private `data/private/
 
 What the script does:
 1. Refuses to run in the original checkout, in a modified clone, or with a `.env` that is not this clone's.
-2. Creates this clone's private `.env` with new local passwords, Docker project `satima-tailnet`, PostgreSQL on `127.0.0.1:5434`, the app on `127.0.0.1:3100`, `PUBLIC_ORIGIN=https://<mac>.<tailnet>.ts.net` and 7-day sessions. Its own containers and volume sit beside, never on top of, the original stack.
-3. Authenticates the whole encrypted archive, then streams it into the empty database. No plaintext dump is written to disk.
+2. Creates this clone's private `.env` with new local passwords, Docker project `satima-tailnet`, PostgreSQL on `127.0.0.1:5434`, the app on `127.0.0.1:3100`, `PUBLIC_ORIGIN=https://<mac>.<tailnet>.ts.net:8443` and 7-day sessions. Its own containers and volume sit beside, never on top of, the original stack.
+3. Authenticates the whole encrypted archive, then streams it through `pg_restore -f -` and `psql` in one transaction. No plaintext dump is written to disk. Neon's PostgreSQL stores a Neon-only table setting (`pg_attver`) that standard PostgreSQL rejects, so the stream drops that setting from DDL lines only. Data blocks pass through unchanged, and the script prints how many lines it changed.
 4. Applies any newer migrations, then **rebuilds the app role's privileges** from the migrations and verifies them against a freshly migrated reference database. Backups are `--no-acl`, and re-running migration 008 alone leaves the app unable even to create login sessions.
-5. Builds and starts the app, publishes it with `tailscale serve --bg --https=443`, and runs a smoke test over the tailnet address.
+5. Builds and starts the app, publishes it with Tailscale Serve on HTTPS port **8443** (`https://<mac>.<tailnet>.ts.net:8443`), and runs a smoke test over that address. Port 8443 is the default so an existing Serve site on 443 is left alone. Set `TAILNET_HTTPS_PORT=443` or `10000` to use another Serve port. The script refuses to take a port that another mapping already uses.
 
 ## On the phone (Samsung S26 Ultra)
 1. Open the Tailscale app and make sure it is connected.
-2. In Chrome, open `https://<mac>.<tailnet>.ts.net` (the script prints the exact address).
+2. In Chrome, open `https://<mac>.<tailnet>.ts.net:8443` (the script prints the exact address).
 3. Sign in as `admin`. The password is the new local one: on the Mac, run `make copy-password` in the clone to copy it to the clipboard, then send it to the phone through your password manager.
 4. Chrome menu → **Add to Home screen** puts an icon on the phone. Until the manifest uses `display: standalone`, it opens as a Chrome tab.
 

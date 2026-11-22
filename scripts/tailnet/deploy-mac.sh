@@ -19,6 +19,9 @@ PROJECT=satima-tailnet
 PG_PORT="${TAILNET_PG_PORT:-5434}"
 APP_PORT="${TAILNET_APP_PORT:-3100}"
 SESSION_DAYS="${TAILNET_SESSION_DAYS:-7}"
+# Tailscale Serve HTTPS port: 443, 8443 or 10000. Default 8443 so an existing site on 443 is left alone.
+HTTPS_PORT="${TAILNET_HTTPS_PORT:-8443}"
+[[ "$HTTPS_PORT" =~ ^(443|8443|10000)$ ]] || { echo 'TAILNET_HTTPS_PORT must be 443, 8443 or 10000' >&2; exit 1; }
 ORIGINAL="${SATIMA_ORIGINAL_CHECKOUT:-$HOME/Developer/satima-cms}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -91,7 +94,8 @@ configure() {
   [[ "$host" == *.ts.net ]] || die "Unexpected Tailscale DNS name: $host (enable MagicDNS)."
   env_set POSTGRES_PORT "$PG_PORT"
   env_set CMS_PORT "$APP_PORT"
-  env_set PUBLIC_ORIGIN "https://$host"
+  if [[ "$HTTPS_PORT" == 443 ]]; then URL="https://$host"; else URL="https://$host:$HTTPS_PORT"; fi
+  env_set PUBLIC_ORIGIN "$URL"
   [[ -n "$(env_get AUTH_SESSION_DAYS)" ]] || env_set AUTH_SESSION_DAYS "$SESSION_DAYS"
   export COMPOSE_PROJECT_NAME="$PROJECT"
   local name; name="$(compose config --format json | python3 -c 'import json,sys;print(json.load(sys.stdin)["name"])')"
@@ -115,17 +119,29 @@ restore_backup() {
 }
 
 serve() {
-  local current; current="$("$TS" serve status 2>/dev/null || true)"
-  if [[ -n "$current" && "$current" != *"No serve config"* && "$current" != *"127.0.0.1:$APP_PORT"* ]]; then
-    echo "$current"; die 'Tailscale Serve already has a different configuration (shown above). Not overwriting it.'
-  fi
-  "$TS" serve --bg --https=443 "http://127.0.0.1:$APP_PORT" >/dev/null
+  # Only this HTTPS port is checked and changed; other Serve mappings (e.g. a site on 443) are left as they are.
+  local mine; mine="$("$TS" serve status --json 2>/dev/null | python3 -c '
+import json, sys
+host, port, want = sys.argv[1], sys.argv[2], sys.argv[3]
+try: d = json.load(sys.stdin)
+except Exception: d = {}
+handlers = ((d.get("Web") or {}).get(f"{host}:{port}") or {}).get("Handlers") or {}
+tcp = (d.get("TCP") or {}).get(port) or {}
+if not handlers and not tcp: print("free")
+elif set(handlers) == {"/"} and handlers["/"].get("Proxy") == want: print("ours")
+else: print("taken")' "$HOST" "$HTTPS_PORT" "http://127.0.0.1:$APP_PORT")"
+  case "$mine" in
+    ours) echo "Tailscale Serve already maps port $HTTPS_PORT to the CMS." ;;
+    free) "$TS" serve --bg --https="$HTTPS_PORT" "http://127.0.0.1:$APP_PORT" >/dev/null ;;
+    *) "$TS" serve status || true
+       die "Tailscale Serve port $HTTPS_PORT is used by something else. Re-run with TAILNET_HTTPS_PORT=10000 (or 443/8443)." ;;
+  esac
 }
 
 smoke() {
   say 'Smoke test over the tailnet'
-  curl -fsS --max-time 20 "https://$HOST/health" >/dev/null && echo "health: ok"
-  local code; code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$HOST/")"
+  curl -fsS --max-time 20 "$URL/health" >/dev/null && echo "health: ok"
+  local code; code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL/")"
   echo "home page: HTTP $code"
   [[ "$code" =~ ^(200|302|303)$ ]] || die "Home page returned $code (403 usually means the Host header does not match PUBLIC_ORIGIN)."
 }
@@ -142,7 +158,7 @@ case "$action" in
     export COMPOSE_PROJECT_NAME="$PROJECT"; compose ps; "$TS" serve status || true ;;
   stop)
     export COMPOSE_PROJECT_NAME="$PROJECT"
-    "$TS" serve --https=443 off 2>/dev/null || true
+    "$TS" serve --https="$HTTPS_PORT" off 2>/dev/null || true
     compose stop; echo 'Stopped. Data is kept in the satima-tailnet volume.' ;;
   redeploy)
     configure
@@ -177,7 +193,7 @@ case "$action" in
     say 'Publishing to the tailnet only (Tailscale Serve, not Funnel)'
     serve; smoke; warn_sleep
     say 'Ready'
-    echo "Open on your phone (Tailscale on):  https://$HOST"
+    echo "Open on your phone (Tailscale on):  $URL"
     echo 'Admin username: admin   Password: run  make copy-password  in this clone (copies to clipboard).'
     echo 'This is a COPY of production taken from the backup. Changes made here do not reach the Render/Neon CMS.' ;;
 esac
