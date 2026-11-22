@@ -1,4 +1,5 @@
-name: satima-cms
+# COMPOSE_PROJECT_NAME (from .env) lets a second checkout run beside the original without sharing containers or volumes.
+name: ${COMPOSE_PROJECT_NAME:-satima-cms}
 services:
   postgres:
     image: postgres:18.6
@@ -33,6 +34,13 @@ services:
       CMS_PASSWORD: ${CMS_PASSWORD:?Set CMS_PASSWORD}
       VIEWER_USERNAME: ${VIEWER_USERNAME:-}
       VIEWER_PASSWORD_HASH: ${VIEWER_PASSWORD_HASH:-}
+      REGISTRATION_VIEWER_USERNAME: ${REGISTRATION_VIEWER_USERNAME:-}
+      REGISTRATION_VIEWER_PASSWORD_HASH: ${REGISTRATION_VIEWER_PASSWORD_HASH:-}
+      FINANCE_USERNAME: ${FINANCE_USERNAME:-}
+      FINANCE_PASSWORD_HASH: ${FINANCE_PASSWORD_HASH:-}
+      AUTH_SESSION_DAYS: ${AUTH_SESSION_DAYS:-30}
+      # Set only behind HTTPS (e.g. Tailscale Serve); enables Secure cookies and the strict host/origin check.
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       CMS_PORT: ${CMS_PORT:-3000}
       PORT: 3000
       LISTEN_HOST: 0.0.0.0

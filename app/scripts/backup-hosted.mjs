@@ -31,7 +31,7 @@ export async function backup(){
   console.log('Encrypted, authenticated backup verified: '+file);return file;
  }catch(e){await unlink(partial).catch(()=>{});throw e;}finally{await unlink(ca).catch(()=>{});}
 }
-async function decrypted(file){
+export async function decrypted(file){
  const size=(await stat(file)).size;if(size<37)throw new Error('Invalid encrypted backup');
  const h=await open(file,'r');const head=Buffer.alloc(20),tag=Buffer.alloc(16);try{await h.read(head,0,20,0);await h.read(tag,0,16,size-16);}finally{await h.close();}
  if(!head.subarray(0,8).equals(magic))throw new Error('Invalid backup header');
