@@ -94,7 +94,7 @@ const response=await request(route);assert.equal(response.status,200,route);asse
  const adminPage=await (await request('/')).text(),operationsPage=await (await request('/operations')).text();
  assert.match(adminPage,/<title>Satima Farmhouse CMS · Admin<\/title>/);
  assert.match(operationsPage,/<title>Satima Farmhouse CMS · Head of Operations<\/title>/);
- for(const [route,type] of [['/favicon.ico','image/x-icon'],['/favicon-32.png','image/png'],['/apple-touch-icon.png','image/png'],['/icon-192.png','image/png'],['/icon-512.png','image/png'],['/site.webmanifest','application/manifest+json']]){
+ for(const [route,type] of [['/favicon.ico','image/x-icon'],['/favicon-32.png','image/png'],['/apple-touch-icon.png','image/png'],['/icon-192.png','image/png'],['/icon-512.png','image/png'],['/site.webmanifest','application/manifest+json'],['/sw.js','text/javascript'],['/pwa.js','text/javascript'],['/icon-maskable-192.png','image/png'],['/icon-maskable-512.png','image/png']]){
   const response=await request(route);assert.equal(response.status,200,route);assert.equal(response.headers.get('content-type'),type,route);assert.ok((await response.arrayBuffer()).byteLength>0,route);
  }
 assert.equal((await request('/api/farmers')).status,401);
